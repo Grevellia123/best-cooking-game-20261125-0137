@@ -29,6 +29,15 @@ export const LAYOUT = {
   restartButton: { x: 490, y: 500, w: 300, h: 72 },
 };
 
+// Viewport culling: the kitchen is one fixed 1280x720 screen, so every
+// panel already sits inside the frame — but the lists that grow and shrink
+// (orders, grill slots, plate items, bins) are still checked before
+// drawing, so nothing is ever painted outside the canvas if a list ever
+// outgrows its panel. A rect fully past any canvas edge is skipped.
+function visible(x, y, w, h) {
+  return x < W && x + w > 0 && y < H && y + h > 0;
+}
+
 function rr(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
@@ -167,7 +176,9 @@ export function drawWorld(ctx, world) {
     text(ctx, 'No orders yet…', b.x + b.w / 2, b.y + 90, 16, '#bcd8c2', 'center', false);
   }
   world.orders.forEach((order, i) => {
-    drawOrderCard(ctx, order, b.x + 12, b.y + 46 + i * 82, b.w - 24, 74);
+    const cy = b.y + 46 + i * 82;
+    if (!visible(b.x + 12, cy, b.w - 24, 74)) return; // off-screen card: not drawn
+    drawOrderCard(ctx, order, b.x + 12, cy, b.w - 24, 74);
   });
   text(ctx, `Served ${world.served}  •  Walked out ${world.failed}`, b.x + b.w / 2, b.y + b.h - 10, 13, '#bcd8c2', 'center', false);
 
@@ -180,6 +191,7 @@ export function drawWorld(ctx, world) {
   text(ctx, 'take the patty when green', g.x + g.w / 2, g.y + 40, 12, '#d8b896', 'center', false);
   world.grill.forEach((slot, i) => {
     const s = LAYOUT.grillSlots[i];
+    if (!visible(s.x, s.y, s.w, s.h)) return; // off-screen slot: not drawn
     ctx.fillStyle = '#2b1a12';
     rr(ctx, s.x, s.y, s.w, s.h, 10);
     ctx.fill();
@@ -214,6 +226,7 @@ export function drawWorld(ctx, world) {
   } else {
     world.plate.forEach((id, i) => {
       const cx = p.x + p.w / 2 + (i - (world.plate.length - 1) / 2) * 44;
+      if (!visible(cx - 20, p.y + 118 - i * 4 - 20, 40, 40)) return; // off-screen item: not drawn
       drawIngredientIcon(ctx, id, cx, p.y + 118 - i * 4, 20);
       const ing = ingredientById(id);
       text(ctx, ing.name, cx, p.y + 178, 11, '#6b4a2a', 'center', false);
@@ -235,6 +248,7 @@ export function drawWorld(ctx, world) {
   // Ingredient counter bins
   text(ctx, 'INGREDIENTS ON THE COUNTER — click a bin (or press its number key)', 40, 452, 16, '#6b4a2a');
   LAYOUT.bins.forEach((bin) => {
+    if (!visible(bin.x, bin.y, bin.w, bin.h)) return; // off-screen bin: not drawn
     const ing = ingredientById(bin.id);
     ctx.fillStyle = '#fffaf0';
     rr(ctx, bin.x, bin.y, bin.w, bin.h, 12);
